@@ -17,8 +17,8 @@ router.post("/create", authenticateToken, async (req, res) => {
     }
 });
 
-// Tüm blog yazılarını getirme
-router.get("/", async (req, res) => {
+// Tüm blog yazılarını getirme (JWT doğrulama ekleniyor)
+router.get("/", authenticateToken, async (req, res) => {  // JWT doğrulama burada da ekleniyor
     try {
         const posts = await BlogPost.find().populate("author").populate("tags");
         res.status(200).json(posts);
