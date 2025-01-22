@@ -70,9 +70,16 @@ router.post("/update", authenticateToken, upload.single('profile_image'), async 
     const { first_name, last_name, email } = req.body;
     let profile_image = req.file ? req.file.filename : undefined; // Yalnızca dosya adını kaydet
 
+    // Güncellenecek alanları filtrele
+    const updateData = {};
+    if (first_name) updateData.first_name = first_name;
+    if (last_name) updateData.last_name = last_name;
+    if (email) updateData.email = email;
+    if (profile_image) updateData.profile_image = profile_image;
+
     const updatedUser = await User.findByIdAndUpdate(
       userId,
-      { first_name, last_name, email, profile_image },  // Güncellenen bilgiler
+      updateData,  // Güncellenen bilgiler
       { new: true }
     );
 
@@ -84,6 +91,22 @@ router.post("/update", authenticateToken, upload.single('profile_image'), async 
       message: "Profile updated successfully.",
       user: updatedUser,
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Kullanıcı profilini getirme
+router.get("/profile", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;  // JWT'den gelen kullanıcı ID'si
+
+    const user = await User.findById(userId).select("-password"); // Şifreyi hariç tut
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    res.status(200).json(user);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
