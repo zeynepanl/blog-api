@@ -1,9 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const BlogPost = require("../db/models/BlogPosts");
+const authenticateToken = require("../lib/auth");  // JWT doğrulama middleware'i
 
-// Blog yazısı oluşturma
-router.post("/create", async (req, res) => {
+// Blog yazısı oluşturma (JWT doğrulama ekleniyor)
+router.post("/create", authenticateToken, async (req, res) => {
     try {
         const { title, content, author, tags } = req.body;
 
