@@ -1,8 +1,22 @@
 const express = require("express");
 const router = express.Router();
 const jwt = require("jsonwebtoken");
+const multer = require("multer");
+const path = require("path");
 const User = require("../db/models/Users");
 const { JWT_SECRET } = require("../config");
+const authenticateToken = require("../lib/auth");  // JWT doğrulama middleware
+
+// Dosya yükleme ayarları (profile_image için)
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'public/uploads');  // Yüklenen dosya 'public/uploads' dizinine kaydedilecek
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname));  // Benzersiz dosya adı oluşturuluyor
+  }
+});
+const upload = multer({ storage: storage });
 
 // Kullanıcı kaydı (şifre modelde hashleniyor)
 router.post("/register", async (req, res) => {
@@ -25,28 +39,50 @@ router.post("/login", async (req, res) => {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
 
-    // Kullanıcı bulunamazsa
     if (!user) {
       return res.status(404).json({ message: "User not found." });
     }
 
-    // Şifreyi doğruluyoruz
     const validPassword = await user.comparePassword(password);
     if (!validPassword) {
       return res.status(400).json({ message: "Invalid credentials." });
     }
 
-    // JWT token oluşturuluyor
     const token = jwt.sign(
       { id: user._id, email: user.email, first_name: user.first_name, last_name: user.last_name },
       JWT_SECRET,
       { expiresIn: "1h" }
     );
 
-    // Token'ı döndürüyoruz
     res.status(200).json({
       message: "Login successful.",
       token: token,  // JWT token'ı burada döndürülüyor
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Kullanıcı profilini güncelleme (Resim de dahil)
+router.post("/update", authenticateToken, upload.single('profile_image'), async (req, res) => {
+  try {
+    const userId = req.user.id;  // JWT'den gelen kullanıcı ID'si
+    const { first_name, last_name, email } = req.body;
+    let profile_image = req.file ? req.file.filename : undefined; // Yalnızca dosya adını kaydet
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { first_name, last_name, email, profile_image },  // Güncellenen bilgiler
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    res.status(200).json({
+      message: "Profile updated successfully.",
+      user: updatedUser,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
